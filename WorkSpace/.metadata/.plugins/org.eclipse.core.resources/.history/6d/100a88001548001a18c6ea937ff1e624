@@ -1,0 +1,223 @@
+/*
+ * lcd.c
+ *
+ *  Created on: Dec 27, 2019
+ *      Author: Mina
+ */
+
+#include"lcd.h"
+
+
+void LCD_init(void)
+{
+	SET_BIT(LCD_INST_DDR,RS);
+	SET_BIT(LCD_INST_DDR,RW);
+	SET_BIT(LCD_INST_DDR,E);
+
+	#ifdef _4_BIT_MODE
+
+		#ifdef UPPER_PINS
+			LCD_DATA_DDR |= 0xF0;/*last 4 pins of port o/p*/
+			LCD_DATA_PORT &= 0x0F;
+
+		#else
+			LCD_DATA_DDR|=0x0F;/*1st 4 pins of port o/p*/
+			LCD_DATA_PORT&=0xF0;
+		#endif
+		LCD_sendCommand(0x02);
+		LCD_sendCommand(0x28);/*4_bit_mode_2 Lines and 5x8 matrix*/
+	#else
+		LCD_DATA_DDR=0xFF;
+		LCD_DATA_PORT=0;
+		LCD_sendCommand(0x38);/*8_bit_mode_2 Lines and 5x8 matrix*/
+	#endif
+
+	LCD_sendCommand(0x0C);/*Display On - Cursor OFF*/
+	LCD_sendCommand(0x01);/*Clear Display Screen*/
+}
+
+void LCD_sendCommand(const uint8 a_command)
+{
+	CLEAR_BIT(LCD_INST_PORT,RS);
+	CLEAR_BIT(LCD_INST_PORT,RW);
+	_delay_ms(1);/*TAS = 50 [usec]*/
+	SET_BIT(LCD_INST_PORT,E);
+	_delay_ms(1);/*tPW - tdsw = 290- 100 = 190 [usec]*/
+
+	#ifdef _4_BIT_MODE
+		#ifdef UPPER_PINS
+
+			LCD_DATA_PORT=(LCD_DATA_PORT & 0x0F)|(a_command & 0xF0);
+		#else
+			LCD_DATA_PORT=(LCD_DATA_PORT&0xF0)|((a_command&0xF0)>>4);
+		#endif
+
+		_delay_ms(1); /*tdsw=100 [usec]*/
+		CLEAR_BIT(LCD_INST_PORT,E);
+		_delay_ms(1);/*TAS = 50 [usec]*/
+
+		SET_BIT(LCD_INST_PORT,E);
+		_delay_ms(1);
+
+		#ifdef UPPER_PINS
+			LCD_DATA_PORT=(LCD_DATA_PORT&0x0F)|((a_command&0x0F)<<4);
+		#else
+			LCD_DATA_PORT=(LCD_DATA_PORT&0xF0)|(a_command&0x0F);
+		#endif
+		_delay_ms(1); /*tdsw=100 [usec]*/
+		CLEAR_BIT(LCD_INST_PORT,E);
+	#else
+		LCD_DATA_PORT=a_command;
+		_delay_ms(1); /*tdsw=100 [usec]*/
+
+		CLEAR_BIT(LCD_INST_PORT,E);
+	#endif
+
+	_delay_ms(1); /*th=13 [usec]*/
+}
+
+void LCD_displayCharacter(const uint8 a_data)
+{
+	SET_BIT(LCD_INST_PORT,RS);
+	CLEAR_BIT(LCD_INST_PORT,RW);
+
+	_delay_ms(1);/*TAS = 50 [usec]*/
+
+	SET_BIT(LCD_INST_PORT,E);
+
+	_delay_ms(1);/*tPW - tdsw = 290- 100 = 190 [usec]*/
+
+	#ifdef _4_BIT_MODE
+		#ifdef UPPER_PINS
+
+			LCD_DATA_PORT=(LCD_DATA_PORT & 0x0F)|(a_data & 0xF0);
+		#else
+
+			LCD_DATA_PORT=(LCD_DATA_PORT&0xF0)|((a_data&0xF0)>>4);
+		#endif
+
+		_delay_ms(1); /*tdsw=100 [usec]*/
+		CLEAR_BIT(LCD_INST_PORT,E);
+		_delay_ms(1);/*TAS = 50 [usec]*/
+
+		SET_BIT(LCD_INST_PORT,E);
+		_delay_ms(1);
+
+		#ifdef UPPER_PINS
+			LCD_DATA_PORT=(LCD_DATA_PORT & 0x0F)|((a_data & 0x0F)<<4);
+		#else
+			LCD_DATA_PORT=(LCD_DATA_PORT&0xF0)|(a_data&0x0F);
+		#endif
+		_delay_ms(1); /*tdsw=100 [usec]*/
+		CLEAR_BIT(LCD_INST_PORT,E);
+	#else
+		LCD_DATA_PORT=a_data;
+		_delay_ms(1); /*tdsw=100 [usec]*/
+
+		CLEAR_BIT(LCD_INST_PORT,E);
+	#endif
+
+	_delay_ms(1); /*th=13 [usec]*/
+}
+
+void LCD_displayString(const uint8 * a_Str_Ptr)
+{
+	while((*a_Str_Ptr) !='\0')
+	{
+		LCD_displayCharacter(* a_Str_Ptr);
+		a_Str_Ptr++;
+	}
+}
+
+void LCD_goToRowColumn(const uint8 a_Row,const uint8 a_Column)
+{
+	uint8 Address;
+
+	switch(a_Row)
+	{
+		case 0:
+			Address= a_Column;
+			break;
+		case 1:
+			Address= a_Column + 0x40;
+			break;
+		case 2:
+			Address= a_Column + 0x10;
+			break;
+		case 3:
+			Address= a_Column + 0x50;
+			break;
+		default:
+			Address=0x00;
+	}
+
+	LCD_sendCommand(Address|Set_Cursor_Location);
+
+}
+void LCD_displayStringRowColumn(const uint8 a_Row,const uint8 a_Column,const uint8 * a_Str_Ptr)
+{
+	LCD_goToRowColumn(a_Row,a_Column);
+	LCD_displayString(a_Str_Ptr);
+}
+
+void LCD_clearScreen(void)
+{
+	LCD_sendCommand(Clear_Display_Screen);
+}
+#if 1
+void LCD_integerToString(uint64 a_data)
+{
+	uint8 Buff[17]={0};
+	uint8 Count1;
+	uint8 Count2;
+	uint64 Pow;
+
+	if(a_data==0)
+	{
+		LCD_displayCharacter('0');
+		return;
+	}
+
+	for(Count1=0u;Count1<16u;Count1++)
+	{
+		Pow=1;
+		for(Count2=Count1;Count2<15u;Count2++)
+		{
+			Pow*=10u;
+		}
+
+		Buff[Count1]=(uint8) (a_data/Pow);
+		a_data-=((uint64)Buff[Count1]*Pow);
+		Buff[Count1]+=48u;
+	}
+	Buff[16]='\0';
+
+	Count1=0;/*Reset Count1*/
+
+	while(Buff[Count1] =='0')
+	{
+		Count1++;
+	}
+
+	LCD_displayString(Buff+Count1);
+}
+#else
+void LCD_integerToString(uint64 a_data)
+{
+   uint8 buff[16]; /* String to hold the ascii result */
+   itoa(a_data,buff,10); /* 10 for decimal */
+   LCD_displayString(buff);
+}
+#endif
+
+void LCD_clearArea(uint8 a_startRow ,uint8 a_startColumn,uint8 a_endColumn)
+{
+	uint8 count;
+
+	for(count=a_startColumn;count<=a_endColumn;count++)
+	{
+		LCD_goToRowColumn(a_startRow,count);
+		LCD_displayCharacter(' ');
+	}
+	LCD_goToRowColumn(a_startRow,a_startColumn);
+}

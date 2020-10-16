@@ -1,0 +1,50 @@
+/*
+ * lcd.h
+ *
+ *  Created on: Dec 27, 2019
+ *      Author: Mina
+ */
+
+#ifndef LCD_H_
+#define LCD_H_
+
+
+#include"common_macros.h"
+#include"std_types.h"
+#include"micro_config.h"
+
+#if TRUE
+
+	#define _4_BIT_MODE
+
+	#if TRUE
+		#define UPPER_PINS
+	#endif
+
+#endif
+
+
+#define LCD_DATA_PORT	PORTB
+#define LCD_DATA_DDR	DDRB
+
+
+#define LCD_INST_PORT	PORTB
+#define LCD_INST_DDR	DDRB
+
+#define RS	BIT1
+#define RW 	BIT2
+#define E	BIT3
+
+#define Clear_Display_Screen 1
+#define Set_Cursor_Location 0x80
+
+void LCD_VidWriteCommand(uint8 a_command);
+void LCD_VidWriteData(uint8 a_data);
+void LCD_clearScreen(void);
+void LCD_VidInit(void);
+void LCD_VidWriteString(const char *Str);
+void LCD_VidWriteNumber (uint64 a_Number);
+void LCD_VidSetRowColumn(uint8 a_Row,uint8 a_Column);
+
+
+#endif /* LCD_H_ */

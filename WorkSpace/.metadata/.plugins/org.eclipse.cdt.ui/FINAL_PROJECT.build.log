@@ -1,0 +1,38 @@
+13:56:27 **** Incremental Build of configuration Debug for project FINAL_PROJECT ****
+make all 
+Building file: ../CONTROL.c
+Invoking: AVR Compiler
+avr-gcc -Wall -g2 -gstabs -O0 -fpack-struct -fshort-enums -ffunction-sections -fdata-sections -std=gnu99 -funsigned-char -funsigned-bitfields -mmcu=atmega32 -DF_CPU=8000000UL -MMD -MP -MF"CONTROL.d" -MT"CONTROL.o" -c -o "CONTROL.o" "../CONTROL.c"
+In file included from ../micro_config.h:22,
+                 from ../E2PROM.h:11,
+                 from ../CONTROL.c:7:
+c:/winavr-20100110/lib/gcc/../../avr/include/util/delay.h:90:3: warning: #warning "Compiler optimizations disabled; functions from <util/delay.h> won't work as designed"
+Finished building: ../CONTROL.c
+ 
+Building target: FINAL_PROJECT.elf
+Invoking: AVR C Linker
+avr-gcc -Wl,-Map,FINAL_PROJECT.map -mmcu=atmega32 -o "FINAL_PROJECT.elf"  ./CONTROL.o ./E2PROM.o ./I2C.o ./Timer1.o ./UART.o   
+Finished building target: FINAL_PROJECT.elf
+ 
+Invoking: AVR Create Extended Listing
+avr-objdump -h -S FINAL_PROJECT.elf  >"FINAL_PROJECT.lss"
+Finished building: FINAL_PROJECT.lss
+ 
+Invoking: Print Size
+avr-size --format=avr --mcu=atmega32 FINAL_PROJECT.elf
+AVR Memory Usage
+----------------
+Device: atmega32
+
+Program:    8592 bytes (26.2% Full)
+(.text + .data + .bootloader)
+
+Data:        274 bytes (13.4% Full)
+(.data + .bss + .noinit)
+
+
+Finished building: sizedummy
+ 
+
+13:56:28 Build Finished (took 890ms)
+

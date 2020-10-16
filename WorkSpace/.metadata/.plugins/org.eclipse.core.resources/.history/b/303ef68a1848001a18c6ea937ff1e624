@@ -1,0 +1,352 @@
+/*
+ * main.c
+ *
+ *  Created on: Jan 15, 2020
+ *      Author: micheal_onsy
+ */
+#include "E2PROM.h"
+#include "UART.h"
+#include "Timer1.h"
+#define M2_READY 0x10
+/*Prototype*/
+void APP_VidTIMER(void);
+
+/*global variable */
+uint8 g_flag=0;
+uint8 g_flag1=0;
+
+int main (void)
+{
+	/*
+	 * Local Variables used In Project
+	 * 1- Counter To Count In Loop
+	 * 2- Count To Count Data From Array
+	 * 3-Receive Data From Uart
+	 * 4-Arrays To Save Data
+	 * */
+	uint8 LOC_u8Counter=0 ;
+	uint8 LOC_u8ToCountData=0 ;
+	uint8 LOC_U8Flag=0;
+	uint8 LOC_u8BuzzerFlag=0;
+	uint8 Receive_Data_From_Uart;
+	uint8 First_Buffer_From_Uart [5];
+	uint8 Second_Buffer_From_Uart [5];
+	uint8 Third_Buffer_From_Uart[8];
+
+
+	/***************************Configuration*********************************/
+	SET_BIT(DDRD,PD5);
+
+	/*Timer*/
+	TIM1_Config Config={CTC,F_CLK_1024,OC1A_OFF};
+	TIMER1_VidInit(&Config ,0,62500);
+	TIMER1_CTC_SetCallBack(APP_VidTIMER);
+	DDRB|=(1<<PB6)|(1<<PB7);
+
+	/*LCD*/
+	//	LCD_VidInit();
+	/*E2prom*/
+	E2PROM_VidInit();
+	/*UART*/
+	UART_Config config={UART_2StopBit,UART_8Bit,UART_AsyncDouble,UART_Disable};
+	UART_VidInit(&config,9600);
+	/*Send Data To MC1 To Know i am Ready To Work */
+	UART_VidSend(M2_READY);
+
+	while(1)
+	{
+		/*
+		 * 1-Receive Data From UART
+		 * 2-Write Data In EEPROM
+		 * 3-Save Data In Array
+		 * */
+		while(LOC_U8Flag==0)
+		{
+			LOC_U8Flag=1;
+			for(LOC_u8Counter=0;LOC_u8Counter<5;LOC_u8Counter++)
+			{
+				Receive_Data_From_Uart =UART_u8Recive();//1LOOP
+				E2PROM_VidWrite((0x0211 & 0x0210)|(LOC_u8Counter+1), Receive_Data_From_Uart);
+				First_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+				_delay_ms(20);
+			}
+		}
+		/*
+		 * 1-Receive Data From UART
+		 * 2-Save Data In Array
+		 * */
+		while(LOC_U8Flag==1)
+		{
+			LOC_U8Flag=2;
+			for(LOC_u8Counter=0; LOC_u8Counter<5;LOC_u8Counter++)
+			{
+				Receive_Data_From_Uart=UART_u8Recive();//2 LOOP
+				Second_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+			}
+		}
+		/*
+		 * 1-Check Data
+		 * 2-if True Send 25 By UART
+		 * 3-Else False send 10 By UART
+		 * 4-Receive Data From UART
+		 * 5-if true Go Next Step
+		 * 6-else False Return To Enter Password
+		 * */
+		while(LOC_U8Flag==2)
+		{
+			for(LOC_u8Counter=0 ;LOC_u8Counter<5;LOC_u8Counter++)
+			{
+				if(First_Buffer_From_Uart[LOC_u8Counter]==Second_Buffer_From_Uart[LOC_u8Counter])
+					LOC_u8ToCountData+=5;
+				else
+					LOC_u8ToCountData+=20;
+			}
+			if(LOC_u8ToCountData==25)
+			{
+				UART_VidSend(25);//3
+				LOC_u8ToCountData=0;
+			}
+			else if(LOC_u8ToCountData!=25)
+			{
+				UART_VidSend(10);//3
+				LOC_u8ToCountData=0;
+			}
+			Receive_Data_From_Uart=UART_u8Recive();//4
+			if(Receive_Data_From_Uart==1)
+				LOC_U8Flag=3;
+			else
+				LOC_U8Flag=0;
+		}
+		/*
+		 * 1-Receive Data From UART
+		 * 2-if Enter '*'
+		 * 3-else Enter '#'
+		 */
+		while(LOC_U8Flag==3)
+		{
+			Receive_Data_From_Uart=UART_u8Recive();//5
+			if(Receive_Data_From_Uart=='*')
+			{
+				/*
+				 * 1-Receive Data From UART
+				 * 2-Save Data In Array
+				 * */
+				for(LOC_u8Counter=0;LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					Receive_Data_From_Uart=UART_u8Recive();//6LOOP
+					Second_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+				}
+				/*
+				 * 1-Check Data By Two Array
+				 * 2-If Array Equal Send 25
+				 * 3-Else Array Equal Send 10
+				 * 4-Receive Data From UARt
+				 * 5-if True Go Next Step
+				 * 6-Else False repeat
+				 * */
+				for(LOC_u8Counter=0 ;LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					if(First_Buffer_From_Uart[LOC_u8Counter]==Second_Buffer_From_Uart[LOC_u8Counter])
+						LOC_u8ToCountData+=5;
+					else
+						LOC_u8ToCountData+=20;
+				}
+				if(LOC_u8ToCountData==25)
+				{
+					UART_VidSend(25);//7
+					LOC_u8ToCountData=0;
+				}
+				else if(LOC_u8ToCountData!=25)
+				{
+					UART_VidSend(10);//7
+					LOC_u8ToCountData=0;
+				}
+				Receive_Data_From_Uart=UART_u8Recive();//8
+				if(Receive_Data_From_Uart==1)
+					LOC_U8Flag=4;
+				else
+					LOC_U8Flag=3;
+			}
+			else if (Receive_Data_From_Uart=='#')
+			{
+				/*
+				 * 1-Receive Data From Uart
+				 * 2-Save Data In Array
+				 * */
+				for(LOC_u8Counter=0;LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					Receive_Data_From_Uart=UART_u8Recive();//10LOOP
+					Third_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+				}
+				/*
+				 * 1-Check Data By Two Array
+				 * 2-If Array Equal Send 25
+				 * 3-Else Array Equal Send 10
+				 * 4-Receive Data From UARt
+				 * 5-if True Go Next Step
+				 * 6-Else False repeat And When the counter is to 3 make the alarm
+				 * */
+				for(LOC_u8Counter=0 ;LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					if(First_Buffer_From_Uart[LOC_u8Counter]==Third_Buffer_From_Uart[LOC_u8Counter])
+						LOC_u8ToCountData+=5;
+					else
+						LOC_u8ToCountData+=20;
+				}
+				if(LOC_u8ToCountData==25)
+				{
+					UART_VidSend(25);//11
+					LOC_u8ToCountData=0;
+				}
+				else if(LOC_u8ToCountData!=25)
+				{
+					UART_VidSend(10);//11
+					LOC_u8ToCountData=0;
+				}
+				Receive_Data_From_Uart=UART_u8Recive();//12
+				if(Receive_Data_From_Uart==1)
+				{
+					LOC_U8Flag=5;
+					LOC_u8BuzzerFlag=0;
+				}
+				else
+				{
+					LOC_U8Flag=3;
+					LOC_u8BuzzerFlag++;
+
+				}
+				if(LOC_u8BuzzerFlag==3)
+				{
+					SET_BIT(PORTD,PD5);
+					for(LOC_u8Counter=1;LOC_u8Counter<=10;LOC_u8Counter++)
+						_delay_ms(6000);
+					LOC_u8BuzzerFlag=0;
+					CLEAR_BIT(PORTA,PA4);
+				}
+			}
+
+		}
+		/******************Start Timer***************B*********************/
+		/*1-Clear TCNT1 In Beginning
+		 *2-Clear g_flag In Beginning
+		 *3-Set I_Bit
+		 *4-In While Check Time IS Finish Or Not IF Finish Clear The Flags And I_Bit
+		 * */
+		while(LOC_U8Flag==4)
+		{
+			TCNT1=0;
+			SET_BIT(PORTB,PB6);
+			CLEAR_BIT(PORTD,PB7);
+			g_flag=0;
+			sei();
+			while(g_flag1==0)
+			{
+			}
+			LOC_U8Flag=3;
+			g_flag1=0;
+			CLEAR_BIT(SREG,7);
+		}
+		/*
+		 * 1-Receive Data From UART
+		 * 2-Save Data In Array
+		 * */
+		while(LOC_U8Flag==5)
+		{
+			LOC_U8Flag=6;
+			while(LOC_U8Flag==6)
+			{
+				LOC_U8Flag=7;
+				for(LOC_u8Counter=0;LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					Receive_Data_From_Uart =UART_u8Recive();//13LOOP
+					Third_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+					_delay_ms(20);
+				}
+			}
+			/*
+			 * 1-Receive Data From UART
+			 * 2-Save Data In Array
+			 * */
+			while(LOC_U8Flag==7)
+			{
+				LOC_U8Flag=2;
+				for(LOC_u8Counter=0; LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					Receive_Data_From_Uart=UART_u8Recive();//14 LOOP
+					Second_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+				}
+			}
+			/*
+			 * 1-Check Data
+			 * 2-if True Send 25 By UART And Save Data In EEPROM
+			 * 3-Else False send 10 By UART
+			 * 4-Receive Data From UART
+			 * 5-if true Go Next Step
+			 * 6-else False Return To Enter Password
+			 * */
+			while(LOC_U8Flag==2)
+			{
+				for(LOC_u8Counter=0 ;LOC_u8Counter<5;LOC_u8Counter++)
+				{
+					if(Third_Buffer_From_Uart[LOC_u8Counter]==Second_Buffer_From_Uart[LOC_u8Counter])
+						LOC_u8ToCountData+=5;
+					else
+						LOC_u8ToCountData+=20;
+				}
+				if(LOC_u8ToCountData==25)
+				{
+					UART_VidSend(25);//15
+					LOC_u8ToCountData=0;
+					for(LOC_u8Counter=0;LOC_u8Counter<5;LOC_u8Counter++)
+					{
+						Receive_Data_From_Uart=Third_Buffer_From_Uart[LOC_u8Counter];
+						E2PROM_VidWrite((0x0211 & 0x0210)|(LOC_u8Counter+1), Receive_Data_From_Uart);
+						First_Buffer_From_Uart[LOC_u8Counter]=Receive_Data_From_Uart;
+						_delay_ms(20);
+					}
+				}
+				else if(LOC_u8ToCountData!=25)
+				{
+					UART_VidSend(10);//15
+					LOC_u8ToCountData=0;
+				}
+				Receive_Data_From_Uart=UART_u8Recive();//16
+				if(Receive_Data_From_Uart==1)
+					LOC_U8Flag=3;
+				else
+				{
+					LOC_U8Flag=3;
+				}
+			}
+		}
+	}
+}
+/*Function To Count Timer*/
+/*
+ *1-if Count==5 Clear Two Bit Connected to Motor
+ *2-Else Count ==1 Run Motor Clock Wise
+ *3- Else count ==3 Run Motor AntiClock Wise
+ **/
+void APP_VidTIMER(void)
+{
+	g_flag++;
+	if(g_flag==5)
+	{
+		g_flag=0;
+		CLEAR_BIT(PORTB,PB6);
+		CLEAR_BIT(PORTB,PB7);
+		g_flag1=1;
+	}
+	if(g_flag==1)
+	{
+		SET_BIT(PORTB,PB6);
+		CLEAR_BIT(PORTB,PB7);
+
+	}
+	else if (g_flag==3)
+	{
+		SET_BIT(PORTB,PB7);
+		CLEAR_BIT(PORTB,PB6);
+
+	}
+}
